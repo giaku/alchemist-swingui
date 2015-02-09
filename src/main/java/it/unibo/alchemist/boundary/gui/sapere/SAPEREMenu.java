@@ -24,7 +24,7 @@ import javax.swing.JMenuItem;
 public class SAPEREMenu extends AbstractMenu {
 
 	private static final long serialVersionUID = 5209455686362711386L;
-	private static final JMenuItem[] ITEMS = { new JMenuItem(Res.get(Res.OPEN_SAPERE_VIEW)) };
+	private static final JMenuItem[] ITEMS = { new JMenuItem(Res.get(Res.OPEN_PERSPECTIVE)) };
 	private int n = 1;
 
 	/**
@@ -32,7 +32,7 @@ public class SAPEREMenu extends AbstractMenu {
 	 * 
 	 */
 	public SAPEREMenu() {
-		super(Res.get(Res.SAPERE), ITEMS);
+		super(Res.get(Res.PERSPECTIVES), ITEMS);
 	}
 
 	@Override
