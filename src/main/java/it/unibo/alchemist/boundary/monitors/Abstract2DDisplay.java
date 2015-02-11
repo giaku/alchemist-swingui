@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2014, Danilo Pianini and contributors
+ * Copyright (C) 2010-2015, Danilo Pianini and contributors
  * listed in the project's pom.xml file.
  * 
  * This file is part of Alchemist, and is distributed under the terms of
@@ -41,6 +41,7 @@ import java.awt.Shape;
 import java.awt.event.ComponentEvent;
 import java.awt.event.ComponentListener;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.awt.geom.GeneralPath;
@@ -50,6 +51,8 @@ import java.awt.geom.Rectangle2D;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 
@@ -66,7 +69,7 @@ import javax.swing.event.MouseInputListener;
  * 
  * @param <T>
  */
-public abstract class Abstract2DDisplay<T> extends JPanel implements GraphicalOutputMonitor<T>, ComponentListener, MouseWheelListener, MouseInputListener {
+public abstract class Abstract2DDisplay<T> extends JPanel implements GraphicalOutputMonitor<T> {
 	/**
 	 * The default frame rate.
 	 */
@@ -83,17 +86,18 @@ public abstract class Abstract2DDisplay<T> extends JPanel implements GraphicalOu
 	private static final int MS_PER_SECOND = 1000;
 	private static final long serialVersionUID = 511631766719686842L;
 
+	private static final double FREEDOM_RADIUS = 1d;
+	private static final double TIME_STEP = 1d / DEFAULT_FRAME_RATE;
+	
 	private boolean realTime;
 	private boolean initialized;
 	private int st;
 	private List<Effect> effectStack;
 	private IEnvironment<T> env;
-	private List<? extends IObstacle2D> obstacles = null;
+	private List<? extends IObstacle2D> obstacles;
 	private final Map<INode<T>, INeighborhood<T>> neighbors = new ConcurrentHashMap<>();
 	private final Map<INode<T>, IPosition> positions = new ConcurrentHashMap<>();
-	private INode<T> hooked = null;
-	private final double freedomRadious = 1d; // NOPMD by gciatto on 04/12/13
-												// 17.17
+	private Optional<INode<T>> hooked = Optional.empty();
 	private IWormhole2D wormhole;
 	private IAngleManager angleManager;
 	private IZoomManager zoomManager;
@@ -103,8 +107,9 @@ public abstract class Abstract2DDisplay<T> extends JPanel implements GraphicalOu
 	private long timeInit = System.currentTimeMillis();
 	private int mousex, mousey, nearestx, nearesty;
 	private final Semaphore mutex = new Semaphore(1);
-	private INode<T> nearest = null;
-	private final double timestep = 1d / DEFAULT_FRAME_RATE;
+	private INode<T> nearest;
+	private final MouseManager mouseManager = new MouseManager();
+	private final ComponentManager componentManager = new ComponentManager();
 
 	/**
 	 * @param env
@@ -138,39 +143,6 @@ public abstract class Abstract2DDisplay<T> extends JPanel implements GraphicalOu
 		st = step;
 		setBackground(Color.WHITE);
 		initialized = false;
-	}
-
-	@Override
-	public void componentHidden(final ComponentEvent e) {
-		/*
-		 * Unused
-		 */
-	}
-
-	@Override
-	public void componentMoved(final ComponentEvent e) {
-		/*
-		 * Unused
-		 */
-	}
-
-	@Override
-	public void componentResized(final ComponentEvent e) {
-		if (wormhole != null) {
-			wormhole.setViewSize(getSize());
-			if (!initialized) {
-				onFirstResizing();
-				initialized = true;
-			}
-		}
-		updateView();
-	}
-
-	@Override
-	public void componentShown(final ComponentEvent e) {
-		/*
-		 * Unused
-		 */
 	}
 
 	/**
@@ -207,10 +179,10 @@ public abstract class Abstract2DDisplay<T> extends JPanel implements GraphicalOu
 
 	@Override
 	public void dispose() {
-		removeMouseListener(this);
-		removeMouseMotionListener(this);
-		removeMouseWheelListener(this);
-		removeComponentListener(this);
+		removeMouseListener(mouseManager);
+		removeMouseMotionListener(mouseManager);
+		removeMouseWheelListener(mouseManager);
+		removeComponentListener(componentManager);
 		removeAll();
 		this.setVisible(false);
 	}
@@ -237,10 +209,10 @@ public abstract class Abstract2DDisplay<T> extends JPanel implements GraphicalOu
 
 		mutex.acquireUninterruptibly();
 
-		if (hooked != null) {
-			final IPosition hcoor = positions.get(hooked);
+		if (hooked.isPresent()) {
+			final IPosition hcoor = positions.get(hooked.get());
 			final Point2D hp = wormhole.getViewPoint(new Point2D.Double(hcoor.getCoordinate(0), hcoor.getCoordinate(1)));
-			if (hp.distance(getCenter()) > freedomRadious) {
+			if (hp.distance(getCenter()) > FREEDOM_RADIUS) {
 				wormhole.setDeltaViewPosition(NSEAlg2DHelper.variation(getCenter(), hp));
 			}
 		}
@@ -248,7 +220,7 @@ public abstract class Abstract2DDisplay<T> extends JPanel implements GraphicalOu
 		g.setColor(Color.BLACK);
 		if (obstacles != null) {
 			for (final IObstacle2D o : obstacles) {
-				final Rectangle2D b = o.getBounds2D();
+//				final Rectangle2D b = o.getBounds2D();
 //				final Point2D.Double pt1 = new Point2D.Double(b.getMinX(), b.getMinY());
 //				final Point2D.Double pt2 = new Point2D.Double(b.getMinX(), b.getMaxY());
 //				final Point2D.Double pt3 = new Point2D.Double(b.getMaxX(), b.getMinY());
@@ -310,7 +282,7 @@ public abstract class Abstract2DDisplay<T> extends JPanel implements GraphicalOu
 	 * @return the center
 	 */
 	protected Point2D getCenter() {
-		return new Point2D.Double(getWidth() / 2, getHeight() / 2);
+		return new Point2D.Double(getWidth() / 2d, getHeight() / 2d);
 	}
 
 	/**
@@ -366,10 +338,10 @@ public abstract class Abstract2DDisplay<T> extends JPanel implements GraphicalOu
 		} else {
 			obstacles = null;
 		}
-		addMouseListener(this);
-		addMouseMotionListener(this);
-		addMouseWheelListener(this);
-		addComponentListener(this);
+		addMouseListener(mouseManager);
+		addMouseMotionListener(mouseManager);
+		addMouseWheelListener(mouseManager);
+		addComponentListener(componentManager);
 	}
 
 	@Override
@@ -401,86 +373,6 @@ public abstract class Abstract2DDisplay<T> extends JPanel implements GraphicalOu
 	 */
 	protected void loadObstacles() {
 		obstacles = ((IEnvironment2DWithObstacles<?, ?>) env).getObstacles();
-	}
-
-	@Override
-	public void mouseClicked(final MouseEvent e) {
-		setDist(e.getX(), e.getY());
-		if (nearest != null && SwingUtilities.isMiddleMouseButton(e)) {
-			final NodeTracker<T> monitor = new NodeTracker<>(nearest, env);
-			AlchemistSwingUI.addTab(monitor);
-			Simulation.addOutputMonitor(env, monitor);
-		}
-		if (nearest != null && SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 2) {
-			hooked = nearest;
-		}
-		if (nearest != null && SwingUtilities.isRightMouseButton(e) && e.getClickCount() == 2) {
-			hooked = null;
-		}
-		updateView();
-	}
-
-	@Override
-	public void mouseDragged(final MouseEvent e) {
-		setDist(e.getX(), e.getY());
-		if (wormhole == null) {
-			return;
-		}
-		if (SwingUtilities.isLeftMouseButton(e)) {
-			if (mouseVelocity != null && hooked == null) {
-				wormhole.setDeltaViewPosition(mouseVelocity.getVariation());
-			}
-		} else if (SwingUtilities.isRightMouseButton(e) && mouseVelocity != null && angleManager != null && wormhole.getMode() != Mode.MAP) {
-			angleManager.inc(mouseVelocity.getVariation().getX());
-			wormhole.rotateAroundPoint(getCenter(), angleManager.getAngle());
-		}
-		mouseVelocity.setCurrentPosition(e.getPoint());
-		updateView();
-	}
-
-	@Override
-	public void mouseEntered(final MouseEvent e) {
-		setDist(e.getX(), e.getY());
-		updateView();
-	}
-
-	@Override
-	public void mouseExited(final MouseEvent e) {
-		setDist(e.getX(), e.getY());
-		updateView();
-	}
-
-	@Override
-	public void mouseMoved(final MouseEvent e) {
-		setDist(e.getX(), e.getY());
-		if (mouseVelocity != null) {
-			mouseVelocity.setCurrentPosition(e.getPoint());
-		}
-		updateView();
-	}
-
-	@Override
-	public void mousePressed(final MouseEvent e) {
-		/*
-		 * Unused
-		 */
-	}
-
-	@Override
-	public void mouseReleased(final MouseEvent e) {
-		/*
-		 * Unused
-		 */
-	}
-
-	@Override
-	public void mouseWheelMoved(final MouseWheelEvent e) {
-		if (wormhole != null && zoomManager != null) {
-			zoomManager.dec(e.getWheelRotation());
-			wormhole.zoomOnPoint(e.getPoint(), zoomManager.getZoom());
-			setDist(e.getX(), e.getY());
-			updateView();
-		}
 	}
 
 	/**
@@ -557,6 +449,7 @@ public abstract class Abstract2DDisplay<T> extends JPanel implements GraphicalOu
 	 *            an {@link IWormhole2D}
 	 */
 	protected void setWormhole(final IWormhole2D w) {
+		Objects.requireNonNull(w);
 		wormhole = w;
 	}
 
@@ -576,15 +469,20 @@ public abstract class Abstract2DDisplay<T> extends JPanel implements GraphicalOu
 		if (firstTime) {
 			env = environment;
 			mutex.acquireUninterruptibly();
-			initAll(r, time, step);
-			lasttime = -timestep;
-			firstTime = false;
-			timeInit = System.currentTimeMillis();
+			/*
+			 * Thread safety: need to double-check 
+			 */
+			if (firstTime) {
+				initAll(r, time, step);
+				lasttime = -TIME_STEP;
+				firstTime = false;
+				timeInit = System.currentTimeMillis();
+				updateView();
+			}
 			mutex.release();
-			updateView();
 		} else if (st < 1 || step % st == 0) {
 			if (isRealTime()) {
-				if (lasttime + timestep > time.toDouble()) {
+				if (lasttime + TIME_STEP > time.toDouble()) {
 					return;
 				}
 				final long timeSimulated = (long) (time.toDouble() * MS_PER_SECOND);
@@ -625,4 +523,121 @@ public abstract class Abstract2DDisplay<T> extends JPanel implements GraphicalOu
 	protected void updateView() {
 		repaint();
 	}
+	
+	private class MouseManager implements MouseInputListener, MouseWheelListener, MouseMotionListener {
+		
+		@Override
+		public void mouseClicked(final MouseEvent e) {
+			setDist(e.getX(), e.getY());
+			if (nearest != null && SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 2) {
+				final NodeTracker<T> monitor = new NodeTracker<>(nearest, env);
+				AlchemistSwingUI.addTab(monitor);
+				Simulation.addOutputMonitor(env, monitor);
+			}
+			if (nearest != null && SwingUtilities.isMiddleMouseButton(e)) {
+				hooked = hooked.isPresent() ? Optional.empty() : Optional.of(nearest);
+			}
+			updateView();
+		}
+
+		@Override
+		public void mouseDragged(final MouseEvent e) {
+			setDist(e.getX(), e.getY());
+			if (wormhole == null) {
+				return;
+			}
+			if (SwingUtilities.isLeftMouseButton(e)) {
+				if (mouseVelocity != null && !hooked.isPresent()) {
+					wormhole.setDeltaViewPosition(mouseVelocity.getVariation());
+				}
+			} else if (SwingUtilities.isRightMouseButton(e) && mouseVelocity != null && angleManager != null && wormhole.getMode() != Mode.MAP) {
+				angleManager.inc(mouseVelocity.getVariation().getX());
+				wormhole.rotateAroundPoint(getCenter(), angleManager.getAngle());
+			}
+			mouseVelocity.setCurrentPosition(e.getPoint());
+			updateView();
+		}
+
+		@Override
+		public void mouseEntered(final MouseEvent e) {
+			setDist(e.getX(), e.getY());
+			updateView();
+		}
+
+		@Override
+		public void mouseExited(final MouseEvent e) {
+			setDist(e.getX(), e.getY());
+			updateView();
+		}
+
+		@Override
+		public void mouseMoved(final MouseEvent e) {
+			setDist(e.getX(), e.getY());
+			if (mouseVelocity != null) {
+				mouseVelocity.setCurrentPosition(e.getPoint());
+			}
+			updateView();
+		}
+
+		@Override
+		public void mousePressed(final MouseEvent e) {
+			/*
+			 * Unused
+			 */
+		}
+
+		@Override
+		public void mouseReleased(final MouseEvent e) {
+			/*
+			 * Unused
+			 */
+		}
+
+		@Override
+		public void mouseWheelMoved(final MouseWheelEvent e) {
+			if (wormhole != null && zoomManager != null) {
+				zoomManager.dec(e.getWheelRotation());
+				wormhole.zoomOnPoint(e.getPoint(), zoomManager.getZoom());
+				setDist(e.getX(), e.getY());
+				updateView();
+			}
+		}
+
+	}
+	
+	private class ComponentManager implements ComponentListener {
+		@Override
+		public void componentHidden(final ComponentEvent e) {
+			/*
+			 * Unused
+			 */
+		}
+
+		@Override
+		public void componentMoved(final ComponentEvent e) {
+			/*
+			 * Unused
+			 */
+		}
+
+		@Override
+		public void componentResized(final ComponentEvent e) {
+			if (wormhole != null) {
+				wormhole.setViewSize(getSize());
+				if (!initialized) {
+					onFirstResizing();
+					initialized = true;
+				}
+			}
+			updateView();
+		}
+
+		@Override
+		public void componentShown(final ComponentEvent e) {
+			/*
+			 * Unused
+			 */
+		}
+	}
+	
 }
