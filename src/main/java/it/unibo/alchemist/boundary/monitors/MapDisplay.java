@@ -35,22 +35,18 @@ public class MapDisplay<T> extends Abstract2DDisplay<T> {
 	private static final long serialVersionUID = 8593507198560560646L;
 	private MapView mapView;
 
-	private static class MapDisplayView extends MapView {
+	private class MapDisplayView extends MapView {
 		private static final long serialVersionUID = -5055412016973925447L;
-		private final MapDisplay<?> parent;
 
-		public MapDisplayView(final Model model, final MapDisplay<?> p) {
+		public MapDisplayView(final Model model) {
 			super(model);
-			parent = p;
 		}
 		
 		@Override
 		public void drawOnMap(final Graphics2D g) {
-			parent.drawEnvOnView(g);
-			parent.drawZoomLevel(g);
+			drawEnvOnView(g);
+			drawZoomLevel(g);
 		}
-		
-		
 	}
 
 	/**
@@ -95,7 +91,7 @@ public class MapDisplay<T> extends Abstract2DDisplay<T> {
 		super.initialized(env);
 		final IMapEnvironment<T> e = (IMapEnvironment<T>) env;
 		final Model mapModel = new Model();
-		mapView = new MapDisplayView(mapModel, this);
+		mapView = new MapDisplayView(mapModel);
 		setWormhole(new MapWormhole(getWormhole(), mapModel));
 		setZoomManager(new LinZoomManager(1, 1));
 		getWormhole().setEnvPosition(new Point2D.Double(getWormhole().getEnvOffset().getX() + getWormhole().getEnvSize().getWidth() / 2, getWormhole().getEnvOffset().getY() + getWormhole().getEnvSize().getHeight() / 2));
