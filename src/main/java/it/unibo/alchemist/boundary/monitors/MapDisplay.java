@@ -65,7 +65,7 @@ public class MapDisplay<T> extends Abstract2DDisplay<T> {
 	public void dispose() {
 		super.dispose();
 		this.removeAll();
-		if(mapView != null) {
+		if (mapView != null) {
 			mapView.dispose();
 			remove(mapView);
 		}
@@ -92,6 +92,7 @@ public class MapDisplay<T> extends Abstract2DDisplay<T> {
 
 	@Override
 	public void initialized(final IEnvironment<T> env) {
+		super.initialized(env);
 		final IMapEnvironment<T> e = (IMapEnvironment<T>) env;
 		final Model mapModel = new Model();
 		mapView = new MapDisplayView(mapModel, this);
