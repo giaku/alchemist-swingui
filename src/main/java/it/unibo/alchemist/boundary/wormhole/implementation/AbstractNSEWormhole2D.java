@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2014, Danilo Pianini and contributors
+ * Copyright (C) 2010-2015, Danilo Pianini and contributors
  * listed in the project's pom.xml file.
  * 
  * This file is part of Alchemist, and is distributed under the terms of
@@ -12,6 +12,7 @@ import it.unibo.alchemist.boundary.wormhole.interfaces.IWormhole2D;
 
 import java.awt.geom.Dimension2D;
 import java.awt.geom.Point2D;
+import java.util.Objects;
 
 /**
  * <code>AbstractNSEWormhole2D</code> = Abstract with No Side Effects
@@ -21,6 +22,7 @@ import java.awt.geom.Point2D;
  * sceern-space: the y-axis grows on the bottom side of the screen.
  * 
  * @author <a href="mailto:giovanni.ciatto@studio.unibo.it">Giovanni Ciatto</a>
+ * @author Danilo Pianini
  */
 public abstract class AbstractNSEWormhole2D implements IWormhole2D {
 	private Dimension2D viewSize;
@@ -48,6 +50,9 @@ public abstract class AbstractNSEWormhole2D implements IWormhole2D {
 	 * @see IWormhole2D
 	 */
 	public AbstractNSEWormhole2D(final Dimension2D vSize, final Dimension2D eSize, final Point2D o) {
+		Objects.requireNonNull(vSize);
+		Objects.requireNonNull(eSize);
+		Objects.requireNonNull(o);
 		viewSize = new DoubleDimension(vSize.getWidth(), vSize.getHeight());
 		envSize = new DoubleDimension(eSize.getWidth(), eSize.getHeight());
 		position = new Point2D.Double(0d, vSize.getHeight());
