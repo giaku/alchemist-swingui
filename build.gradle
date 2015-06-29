@@ -34,6 +34,7 @@ configurations {
 dependencies {
     compile "it.unibo.alchemist:alchemist-maps:$mapsVersion"
     compile "it.unibo.alchemist:alchemist-approximatemodelchecking:$apmcVersion"
+    compile "it.unibo.alchemist:alchemist-implementationbase:$implbaseVersion"
     compile "it.unibo.alchemist:alchemist-incarnations:$incarnationsVersion"
     
     compile "com.miglayout:miglayout-swing:$miglayoutVersion"

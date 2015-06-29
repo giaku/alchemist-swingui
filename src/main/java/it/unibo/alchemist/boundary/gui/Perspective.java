@@ -28,6 +28,7 @@ import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 
@@ -58,7 +59,7 @@ public class Perspective<T> extends JPanel implements ChangeListener, ActionList
 	private RandomEngine rand;
 	private final SimControlPanel scp = SimControlPanel.createControlPanel(null);
 	private final JEffectsTab<T> effectsTab;
-	private ISimulation<T> sim;
+	private transient ISimulation<T> sim;
 	private final StatusBar status;
 	private File xml;
 
@@ -208,37 +209,43 @@ public class Perspective<T> extends JPanel implements ChangeListener, ActionList
 			sim.stopAndWait();
 		}
 		IEnvironment<T> env;
-		final EnvironmentBuilder<T> eb = new EnvironmentBuilder<>(xml.getAbsolutePath());
-		new Thread(() -> {
-			try {
-				eb.buildEnvironment();
-			} catch (InstantiationException | IllegalAccessException | InvocationTargetException | ClassNotFoundException | RuntimeException | SAXException | IOException | ParserConfigurationException e) {
-				bar.setFileOK(false);
-				bar.setProcessOK(false);
-				status.setText(r(Res.FILE_NOT_VALID) + " " + xml.getAbsolutePath());
-				status.setNo();
-				L.error(e);
-			}
-		}).start();
-		sim = null;
-		env = eb.getEnvironment();
-		rand = eb.getRandomEngine();
-		sim = new Simulation<>(env, new DoubleTime(Double.POSITIVE_INFINITY), parallel);
-//		new Thread(() -> {
-		bar.setSimulation(sim);
-		scp.setSimulation(sim);
-		final Thread simThread = new Thread(sim);
-		createMonitor();
-		simThread.start();
-		final TimeStepMonitor<T> tm = bar.getTimeMonitor();
-		sim.addOutputMonitor(tm);
-//		}).start();
-		bar.setRandom(rand.getSeed());
-		bar.setFileOK(true);
-		bar.setProcessOK(true);
-		effectsTab.setEnabled(true);
-		status.setOK();
-		status.setText(r(Res.FILE_PROCESSED) + ": " + xml.getAbsolutePath());
+		try {
+			final EnvironmentBuilder<T> eb = new EnvironmentBuilder<>(xml.getAbsolutePath());
+			new Thread(() -> {
+				try {
+					eb.buildEnvironment();
+				} catch (InstantiationException | IllegalAccessException | InvocationTargetException | ClassNotFoundException | RuntimeException | SAXException | IOException | ParserConfigurationException e) {
+					bar.setFileOK(false);
+					bar.setProcessOK(false);
+					status.setText(r(Res.FILE_NOT_VALID) + " " + xml.getAbsolutePath());
+					status.setNo();
+					L.error(e);
+				}
+			}).start();
+			sim = null;
+			env = eb.getEnvironment();
+			rand = eb.getRandomEngine();
+			sim = new Simulation<>(env, new DoubleTime(Double.POSITIVE_INFINITY), parallel);
+			bar.setSimulation(sim);
+			scp.setSimulation(sim);
+			final Thread simThread = new Thread(sim);
+			createMonitor();
+			simThread.start();
+			final TimeStepMonitor<T> tm = bar.getTimeMonitor();
+			sim.addOutputMonitor(tm);
+			bar.setRandom(rand.getSeed());
+			bar.setFileOK(true);
+			bar.setProcessOK(true);
+			effectsTab.setEnabled(true);
+			status.setOK();
+			status.setText(r(Res.FILE_PROCESSED) + ": " + xml.getAbsolutePath());
+		} catch (FileNotFoundException e) {
+			bar.setFileOK(false);
+			bar.setProcessOK(false);
+			status.setText(r(Res.FILE_NOT_VALID) + " " + xml.getAbsolutePath());
+			status.setNo();
+			L.error(e);
+		}
 	}
 
 	private void setMainDisplay(final GraphicalOutputMonitor<T> gom) {
