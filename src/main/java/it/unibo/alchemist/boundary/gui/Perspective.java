@@ -29,7 +29,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 
 import javax.swing.JFileChooser;
@@ -38,9 +37,6 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
-import javax.xml.parsers.ParserConfigurationException;
-
-import org.xml.sax.SAXException;
 
 /**
  * @author Danilo Pianini
@@ -214,12 +210,17 @@ public class Perspective<T> extends JPanel implements ChangeListener, ActionList
 			new Thread(() -> {
 				try {
 					eb.buildEnvironment();
-				} catch (InstantiationException | IllegalAccessException | InvocationTargetException | ClassNotFoundException | RuntimeException | SAXException | IOException | ParserConfigurationException e) {
+				} catch (Throwable e) { // NOPMD
+						/*
+						 * Yes, I also want to catch Errors here. Whatever the
+						 * environment builder does, it might be of use to try
+						 * to log it.
+						 */
+					L.error(e);
 					bar.setFileOK(false);
 					bar.setProcessOK(false);
 					status.setText(r(Res.FILE_NOT_VALID) + " " + xml.getAbsolutePath());
 					status.setNo();
-					L.error(e);
 				}
 			}).start();
 			sim = null;
