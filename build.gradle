@@ -8,6 +8,9 @@ apply plugin: 'maven'
 apply plugin: 'build-dashboard'
 apply plugin: 'signing'
 
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
 task wrapper(type: Wrapper) {
     gradleVersion = gradleVersionToUse
 }
@@ -24,9 +27,18 @@ repositories {
     mavenCentral()
 }
 
+configurations.all {
+  	resolutionStrategy {
+	    failOnVersionConflict()
+    }
+}
+
 configurations {
     doc {
         transitive false
+    }
+    compile {
+        exclude module: 'org.eclipse.xtext.dependencies'
     }
     doclet
 }
