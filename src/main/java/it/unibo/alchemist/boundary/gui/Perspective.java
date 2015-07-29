@@ -8,6 +8,23 @@
  */
 package it.unibo.alchemist.boundary.gui;
 
+import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.FileInputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.util.concurrent.Future;
+
+import javax.swing.JFileChooser;
+import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+import javax.swing.filechooser.FileFilter;
+import javax.swing.filechooser.FileNameExtensionFilter;
+
 import it.unibo.alchemist.boundary.gui.ReactivityPanel.Status;
 import it.unibo.alchemist.boundary.gui.UpperBar.Commands;
 import it.unibo.alchemist.boundary.gui.effects.JEffectsTab;
@@ -19,24 +36,10 @@ import it.unibo.alchemist.core.implementations.Simulation;
 import it.unibo.alchemist.core.interfaces.ISimulation;
 import it.unibo.alchemist.external.cern.jet.random.engine.RandomEngine;
 import it.unibo.alchemist.language.EnvironmentBuilder;
+import it.unibo.alchemist.language.EnvironmentBuilder.Result;
 import it.unibo.alchemist.model.implementations.times.DoubleTime;
 import it.unibo.alchemist.model.interfaces.IEnvironment;
 import it.unibo.alchemist.utils.L;
-
-import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.lang.reflect.InvocationTargetException;
-
-import javax.swing.JFileChooser;
-import javax.swing.JPanel;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
-import javax.swing.filechooser.FileFilter;
-import javax.swing.filechooser.FileNameExtensionFilter;
 
 /**
  * @author Danilo Pianini
@@ -204,28 +207,11 @@ public class Perspective<T> extends JPanel implements ChangeListener, ActionList
 		if (sim != null) {
 			sim.stopAndWait();
 		}
-		IEnvironment<T> env;
 		try {
-			final EnvironmentBuilder<T> eb = new EnvironmentBuilder<>(xml.getAbsolutePath());
-			new Thread(() -> {
-				try {
-					eb.buildEnvironment();
-				} catch (Throwable e) { // NOPMD
-						/*
-						 * Yes, I also want to catch Errors here. Whatever the
-						 * environment builder does, it might be of use to try
-						 * to log it.
-						 */
-					L.error(e);
-					bar.setFileOK(false);
-					bar.setProcessOK(false);
-					status.setText(r(Res.FILE_NOT_VALID) + " " + xml.getAbsolutePath());
-					status.setNo();
-				}
-			}).start();
 			sim = null;
-			env = eb.getEnvironment();
-			rand = eb.getRandomEngine();
+			final Future<Result<T>> fenv = EnvironmentBuilder.build(new FileInputStream(xml));
+			final IEnvironment<T> env = fenv.get().getEnvironment();
+			rand = fenv.get().getRandomEngine();
 			sim = new Simulation<>(env, new DoubleTime(Double.POSITIVE_INFINITY), parallel);
 			bar.setSimulation(sim);
 			scp.setSimulation(sim);
@@ -240,13 +226,19 @@ public class Perspective<T> extends JPanel implements ChangeListener, ActionList
 			effectsTab.setEnabled(true);
 			status.setOK();
 			status.setText(r(Res.FILE_PROCESSED) + ": " + xml.getAbsolutePath());
-		} catch (FileNotFoundException e) {
+		} catch (Exception e) {
+			processError(e);
+		}
+	}
+	
+	private void processError(final Throwable e) {
+		SwingUtilities.invokeLater(() -> {
 			bar.setFileOK(false);
 			bar.setProcessOK(false);
 			status.setText(r(Res.FILE_NOT_VALID) + " " + xml.getAbsolutePath());
 			status.setNo();
 			L.error(e);
-		}
+		});
 	}
 
 	private void setMainDisplay(final GraphicalOutputMonitor<T> gom) {
