@@ -97,7 +97,8 @@ public class MapDisplay<T> extends Abstract2DDisplay<T> {
 		getWormhole().setEnvPosition(new Point2D.Double(getWormhole().getEnvOffset().getX() + getWormhole().getEnvSize().getWidth() / 2, getWormhole().getEnvOffset().getY() + getWormhole().getEnvSize().getHeight() / 2));
 		getWormhole().setOptimalZoomRate();
 		getZoomManager().setZoom(getWormhole().getZoom());
-		add(MapViewer.createMapView(mapView, mapModel, getMapFile(e.getMapFile())), BorderLayout.CENTER);
+//		add(MapViewer.createMapView(mapView, mapModel, getMapFile(e.getMapFile())), BorderLayout.CENTER);
+		add(MapViewer.createMapView(mapView, mapModel, null), BorderLayout.CENTER);
 		revalidate();
 		super.initialized(env);
 	}
