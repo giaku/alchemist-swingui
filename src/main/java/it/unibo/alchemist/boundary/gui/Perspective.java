@@ -29,9 +29,7 @@ import it.unibo.alchemist.boundary.gui.ReactivityPanel.Status;
 import it.unibo.alchemist.boundary.gui.UpperBar.Commands;
 import it.unibo.alchemist.boundary.gui.effects.JEffectsTab;
 import it.unibo.alchemist.boundary.interfaces.GraphicalOutputMonitor;
-import it.unibo.alchemist.boundary.interfaces.SwingOutputMonitor;
 import it.unibo.alchemist.boundary.l10n.Res;
-import it.unibo.alchemist.boundary.monitors.Abstract2DDisplay;
 import it.unibo.alchemist.boundary.monitors.Generic2DDisplay;
 import it.unibo.alchemist.boundary.monitors.TimeStepMonitor;
 import it.unibo.alchemist.core.implementations.Simulation;
@@ -56,7 +54,7 @@ public class Perspective<T> extends JPanel implements ChangeListener, ActionList
 	private final UpperBar bar;
 
 	private File currentDirectory = new File(System.getProperty("user.home"));
-	private SwingOutputMonitor<T> main;
+	private GraphicalOutputMonitor<T> main;
 	private RandomEngine rand;
 	private final SimControlPanel scp = SimControlPanel.createControlPanel(null);
 	private final JEffectsTab<T> effectsTab;
@@ -78,12 +76,12 @@ public class Perspective<T> extends JPanel implements ChangeListener, ActionList
 	public Perspective() {
 		super();
 		setLayout(new BorderLayout());
-		
+
 		bar = new UpperBar(scp);
 		add(bar, BorderLayout.NORTH);
 		bar.addActionListener(this);
 		bar.addChangeListener(this);
-		
+
 		status = new StatusBar();
 		status.setText(r(Res.SAPERE_PERSPECTIVE));
 		add(status, BorderLayout.SOUTH);
@@ -159,22 +157,22 @@ public class Perspective<T> extends JPanel implements ChangeListener, ActionList
 	@SuppressWarnings("unchecked")
 	private void createMonitor() {
 		String monitorClassName = sim.getEnvironment().getPreferredMonitor();
-		Class<? extends SwingOutputMonitor<T>> monitorClass;
+		Class<? extends GraphicalOutputMonitor<T>> monitorClass;
 		if (monitorClassName == null) {
-			monitorClass = (Class<? extends SwingOutputMonitor<T>>) DEFAULT_MONITOR_CLASS;
+			monitorClass = (Class<? extends GraphicalOutputMonitor<T>>) DEFAULT_MONITOR_CLASS;
 		} else {
 			if (!monitorClassName.contains(".")) {
 				monitorClassName = DEFAULT_MONITOR_PACKAGE + monitorClassName;
 			}
 			try {
-				monitorClass = (Class<SwingOutputMonitor<T>>) Class.forName(monitorClassName);
+				monitorClass = (Class<GraphicalOutputMonitor<T>>) Class.forName(monitorClassName);
 			} catch (final ClassNotFoundException e) {
 				L.warn(e);
-				monitorClass = (Class<? extends SwingOutputMonitor<T>>) DEFAULT_MONITOR_CLASS;
+				monitorClass = (Class<? extends GraphicalOutputMonitor<T>>) DEFAULT_MONITOR_CLASS;
 			}
 		}
 		try {
-			final SwingOutputMonitor<T> display = monitorClass.getConstructor().newInstance();
+			final GraphicalOutputMonitor<T> display = monitorClass.getConstructor().newInstance();
 			setMainDisplay(display);
 		} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException | SecurityException e) {
 			L.error(e);
@@ -243,7 +241,7 @@ public class Perspective<T> extends JPanel implements ChangeListener, ActionList
 		});
 	}
 
-	private void setMainDisplay(final SwingOutputMonitor<T> gom) {
+	private void setMainDisplay(final GraphicalOutputMonitor<T> gom) {
 		if (main != null) {
 			sim.removeOutputMonitor(main);
 			gom.setStep(main.getStep());
