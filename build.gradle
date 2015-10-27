@@ -60,6 +60,7 @@ configurations.all {
 		    substitute module('org.eclipse.xtext:org.eclipse.xtext.common.types:2.8.3') with module('org.eclipse.xtext:org.eclipse.xtext.common.types:[2.7.3, 2.9[')
 		}
 		force "com.google.guava:guava:$guavaVersion"
+		force ""
     }
 }
 
