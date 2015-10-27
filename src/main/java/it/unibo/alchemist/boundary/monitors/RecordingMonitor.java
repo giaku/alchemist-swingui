@@ -12,14 +12,10 @@ package it.unibo.alchemist.boundary.monitors;
 
 import it.unibo.alchemist.boundary.interfaces.OutputMonitor;
 import it.unibo.alchemist.model.interfaces.IEnvironment;
-import it.unibo.alchemist.model.interfaces.INode;
 import it.unibo.alchemist.model.interfaces.IReaction;
 import it.unibo.alchemist.model.interfaces.ITime;
 import it.unibo.alchemist.utils.L;
 
-import java.awt.BorderLayout;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
@@ -30,8 +26,6 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.concurrent.Semaphore;
 
-import javax.swing.JButton;
-import javax.swing.JFrame;
 import javax.swing.JPanel;
 
 import org.jfree.graphics2d.svg.SVGGraphics2D;
@@ -79,20 +73,20 @@ public class RecordingMonitor<T> extends JPanel implements OutputMonitor<T> {
 	}
 
 	@Override
+	public void finished(final IEnvironment<T> env, final ITime time, final long step) {
+		if(endingScreenshot)
+			saveSVGScreenshot(step);
+	}
+
+	@Override
 	public void initialized(final IEnvironment<T> env) {
 		
 		//TODO aggiungere caricamento via reflection di source
 		
-		new JFrame(env.getPreferredMonitor()).setVisible(true);
+		env.getPreferredMonitor();
 		
 		if(startingScreenshot)
-			stepDone(env, null, null, 0);		
-	}
-
-	@Override
-	public void finished(final IEnvironment<T> env, final ITime time, final long step) {
-		if(endingScreenshot)
-			stepDone(env, null, null, step);
+			saveSVGScreenshot(0);
 	}
 
 	/**
@@ -100,6 +94,31 @@ public class RecordingMonitor<T> extends JPanel implements OutputMonitor<T> {
 	 */
 	public String getFilePath() {
 		return filePath;
+	}
+
+	/**
+	 * Save in a svg file a screenshot of the current source.
+	 * @param step the current step of the simulation that will be added to the file name
+	 */
+	protected void saveSVGScreenshot(final long step) {
+		mutex.acquireUninterruptibly();
+		if (System.identityHashCode(fpCache) != System.identityHashCode(filePath)) {
+			fpCache = filePath;
+			if (writer != null) {
+				writer.close();
+			}
+			try {
+				writer = new PrintStream(new File(fpCache + "_" + step + ".svg"), StandardCharsets.UTF_8.name());
+			} catch (FileNotFoundException | UnsupportedEncodingException e) {
+				L.error(e);
+			}
+		}
+	
+		svgGraphicator = new SVGGraphics2D(source.getWidth(), source.getHeight());
+		source.paint(svgGraphicator);
+		writer.print(svgGraphicator.getSVGDocument());
+		writer.close();
+		mutex.release();
 	}
 
 	/**
@@ -111,26 +130,8 @@ public class RecordingMonitor<T> extends JPanel implements OutputMonitor<T> {
 
 	@Override
 	public void stepDone(final IEnvironment<T> env, final IReaction<T> r, final ITime time, final long step) {
-		if ((source != null) && (step % interval.getVal()==0)) {
-			mutex.acquireUninterruptibly();
-			if (System.identityHashCode(fpCache) != System.identityHashCode(filePath)) {
-				fpCache = filePath;
-				if (writer != null) {
-					writer.close();
-				}
-				try {
-					writer = new PrintStream(new File(fpCache+"_"+step+".svg"), StandardCharsets.UTF_8.name());
-				} catch (FileNotFoundException | UnsupportedEncodingException e) {
-					L.error(e);
-				}
-			}
-			
-			svgGraphicator = new SVGGraphics2D(source.getWidth(), source.getHeight());
-			source.paint(svgGraphicator);
-			writer.print(svgGraphicator.getSVGDocument());
-			writer.close();
-			mutex.release();
-		}
+		if ((source != null) && (step % interval.getVal()==0))
+			saveSVGScreenshot(step);
 	}
 	
 }
