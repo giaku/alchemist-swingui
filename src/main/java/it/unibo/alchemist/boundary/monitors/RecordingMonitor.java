@@ -12,6 +12,7 @@ package it.unibo.alchemist.boundary.monitors;
 
 import it.unibo.alchemist.boundary.interfaces.OutputMonitor;
 import it.unibo.alchemist.model.interfaces.IEnvironment;
+import it.unibo.alchemist.model.interfaces.INode;
 import it.unibo.alchemist.model.interfaces.IReaction;
 import it.unibo.alchemist.model.interfaces.ITime;
 import it.unibo.alchemist.utils.L;
@@ -34,6 +35,7 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 
 import org.jfree.graphics2d.svg.SVGGraphics2D;
+import org.danilopianini.lang.RangedInteger;
 import org.danilopianini.view.ExportForGUI;
 
 
@@ -44,7 +46,7 @@ import org.danilopianini.view.ExportForGUI;
  * @param <T>
  */
 @ExportInspector
-public class RecordingMonitor<T> extends JPanel implements OutputMonitor<T>, ActionListener {
+public class RecordingMonitor<T> extends JPanel implements OutputMonitor<T> {
 
 	/**
 	 * 
@@ -55,24 +57,25 @@ public class RecordingMonitor<T> extends JPanel implements OutputMonitor<T>, Act
 	private final Semaphore mutex = new Semaphore(1);
 	private PrintStream writer;
 	private String fpCache;
-	private boolean screenshotRequested;
 	private SVGGraphics2D svgGraphicator;
 	
 	@ExportForGUI(nameToExport = "File path")
-	private String filePath = System.getProperty("user.home") + System.getProperty("file.separator") + sdf.format(new Date()) + "-alchemist_report.svg";
+	private String filePath = System.getProperty("user.home") + System.getProperty("file.separator") + sdf.format(new Date()) + "-alchemist_screenshot";
+	
+	@ExportForGUI(nameToExport = "Capture after initialization")
+	private boolean startingScreenshot;
+	
+	@ExportForGUI(nameToExport = "Capture when finished")
+	private boolean endingScreenshot;
+	
+	@ExportForGUI(nameToExport = "Sample space")
+	private RangedInteger interval = new RangedInteger(0, 10000, 0);
 	
 	/**
 	 * RecordingMonitor<T> empty constructor.
 	 */
 	public RecordingMonitor() {
 		super();
-		
-		setLayout(new BorderLayout());
-		
-		JButton cap = new JButton("Capture!");
-		cap.addActionListener(this);
-		
-		add(cap, BorderLayout.CENTER);
 	}
 
 	@Override
@@ -82,12 +85,14 @@ public class RecordingMonitor<T> extends JPanel implements OutputMonitor<T>, Act
 		
 		new JFrame(env.getPreferredMonitor()).setVisible(true);
 		
-		stepDone(env, null, null, 0);		
+		if(startingScreenshot)
+			stepDone(env, null, null, 0);		
 	}
 
 	@Override
 	public void finished(final IEnvironment<T> env, final ITime time, final long step) {
-		stepDone(env, null, null, 0);
+		if(endingScreenshot)
+			stepDone(env, null, null, step);
 	}
 
 	/**
@@ -106,7 +111,7 @@ public class RecordingMonitor<T> extends JPanel implements OutputMonitor<T>, Act
 
 	@Override
 	public void stepDone(final IEnvironment<T> env, final IReaction<T> r, final ITime time, final long step) {
-		if (screenshotRequested && (source != null)) {
+		if ((source != null) && (step % interval.getVal()==0)) {
 			mutex.acquireUninterruptibly();
 			if (System.identityHashCode(fpCache) != System.identityHashCode(filePath)) {
 				fpCache = filePath;
@@ -114,7 +119,7 @@ public class RecordingMonitor<T> extends JPanel implements OutputMonitor<T>, Act
 					writer.close();
 				}
 				try {
-					writer = new PrintStream(new File(fpCache), StandardCharsets.UTF_8.name());
+					writer = new PrintStream(new File(fpCache+"_"+step+".svg"), StandardCharsets.UTF_8.name());
 				} catch (FileNotFoundException | UnsupportedEncodingException e) {
 					L.error(e);
 				}
@@ -124,14 +129,8 @@ public class RecordingMonitor<T> extends JPanel implements OutputMonitor<T>, Act
 			source.paint(svgGraphicator);
 			writer.print(svgGraphicator.getSVGDocument());
 			writer.close();
-			screenshotRequested = false;
 			mutex.release();
 		}
-	}
-
-	@Override
-	public void actionPerformed(final ActionEvent e) {
-		screenshotRequested = true;
 	}
 	
 }
