@@ -10,7 +10,6 @@
 package it.unibo.alchemist.boundary.monitors;
 
 
-import it.unibo.alchemist.boundary.interfaces.OutputMonitor;
 import it.unibo.alchemist.model.interfaces.IEnvironment;
 import it.unibo.alchemist.model.interfaces.IReaction;
 import it.unibo.alchemist.model.interfaces.ITime;
@@ -26,10 +25,7 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.concurrent.Semaphore;
 
-import javax.swing.JPanel;
-
 import org.jfree.graphics2d.svg.SVGGraphics2D;
-import org.danilopianini.lang.RangedInteger;
 import org.danilopianini.view.ExportForGUI;
 
 
@@ -40,75 +36,71 @@ import org.danilopianini.view.ExportForGUI;
  * @param <T>
  */
 @ExportInspector
-public class RecordingMonitor<T> extends JPanel implements OutputMonitor<T> {
-
+public class RecordingMonitor<T> extends EnvironmentInspector<T> {
+	
+	
 	/**
 	 * 
 	 */
-	private static final long serialVersionUID = 8482529678274109355L;
+	private static final long serialVersionUID = 1L;
 	private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.getDefault());
 	private Abstract2DDisplay<T> source = null;
 	private final Semaphore mutex = new Semaphore(1);
-	private PrintStream writer;
 	private String fpCache;
+	private final String defaultFilePath = System.getProperty("user.home") + System.getProperty("file.separator") + sdf.format(new Date()) + "-alchemist_screenshot.svg";
+	private PrintStream writer;
 	private SVGGraphics2D svgGraphicator;
 	
-	@ExportForGUI(nameToExport = "File path")
-	private String filePath = System.getProperty("user.home") + System.getProperty("file.separator") + sdf.format(new Date()) + "-alchemist_screenshot";
-	
 	@ExportForGUI(nameToExport = "Capture after initialization")
-	private boolean startingScreenshot;
+	private boolean startingScreenshot = true;
 	
 	@ExportForGUI(nameToExport = "Capture when finished")
-	private boolean endingScreenshot;
-	
-	@ExportForGUI(nameToExport = "Sample space")
-	private RangedInteger interval = new RangedInteger(0, 10000, 0);
+	private boolean endingScreenshot = true;
 	
 	/**
 	 * RecordingMonitor<T> empty constructor.
 	 */
 	public RecordingMonitor() {
 		super();
+		setFilePath(defaultFilePath);
 	}
 
 	@Override
 	public void finished(final IEnvironment<T> env, final ITime time, final long step) {
-		if(endingScreenshot)
-			saveSVGScreenshot(step);
+		if (endingScreenshot) {
+			writeData(env, null, time, step);
+		}
 	}
 
 	@Override
 	public void initialized(final IEnvironment<T> env) {
 		
 		//TODO aggiungere caricamento via reflection di source
-		
 		env.getPreferredMonitor();
 		
-		if(startingScreenshot)
-			saveSVGScreenshot(0);
-	}
-
-	/**
-	 * @return file path
-	 */
-	public String getFilePath() {
-		return filePath;
+		if (startingScreenshot) {
+			super.initialized(env);
+		}
 	}
 
 	/**
 	 * Save in a svg file a screenshot of the current source.
-	 * @param step the current step of the simulation that will be added to the file name
+	 * @param env unused
+	 * @param r unused
+	 * @param time the current time of the simulation that could be added to the file name
+	 * @param step the current step of the simulation that could be added to the file name
 	 */
-	protected void saveSVGScreenshot(final long step) {
+	private void writeData(final IEnvironment<T> env, final IReaction<T> r, final ITime time, final long step) {
 		mutex.acquireUninterruptibly();
-		if (System.identityHashCode(fpCache) != System.identityHashCode(filePath)) {
-			fpCache = filePath;
+		if (System.identityHashCode(fpCache) != System.identityHashCode(getFilePath())) {
+			fpCache = getFilePath();
+			String currentStep = /*addingStepNumber*/isLoggingStep() ? getSeparator() + step : "";
+			String currentTime = (/*addingTime*/isLoggingTime() ? getSeparator() + time : "");
 			if (writer != null) {
 				writer.close();
 			}
 			try {
-				writer = new PrintStream(new File(fpCache + "_" + step + ".svg"), StandardCharsets.UTF_8.name());
+				writer = new PrintStream(new File(fpCache + currentStep + currentTime + ".svg"), StandardCharsets.UTF_8.name());
 			} catch (FileNotFoundException | UnsupportedEncodingException e) {
 				L.error(e);
 			}
@@ -120,18 +112,13 @@ public class RecordingMonitor<T> extends JPanel implements OutputMonitor<T> {
 		writer.close();
 		mutex.release();
 	}
-
+	
 	/**
-	 * @param fp file path
+	 * Unused.
 	 */
-	public void setFilePath(final String fp) {
-		this.filePath = fp;
-	}
-
 	@Override
-	public void stepDone(final IEnvironment<T> env, final IReaction<T> r, final ITime time, final long step) {
-		if ((source != null) && (step % interval.getVal()==0))
-			saveSVGScreenshot(step);
+	protected double[] extractValues(final IEnvironment<T> env, final IReaction<T> r, final ITime time, final long step) {
+		return new double[0];
 	}
 	
 }
