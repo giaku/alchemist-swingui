@@ -49,7 +49,7 @@ public class RecordingMonitor<T> extends EnvironmentInspector<T> {
 	private static final long serialVersionUID = 1L;
 	private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.getDefault());
 	private Generic2DDisplay<T> source;
-	private final Semaphore mutex = new Semaphore(1);
+	private final Semaphore mutex;
 	private String fpCache;
 	private final String defaultFilePath = System.getProperty("user.home") + System.getProperty("file.separator") + sdf.format(new Date()) + "-alchemist_screenshot";
 	private PrintStream writer;
@@ -73,6 +73,7 @@ public class RecordingMonitor<T> extends EnvironmentInspector<T> {
 	public RecordingMonitor() {
 		super();
 		setFilePath(defaultFilePath);
+		mutex = new Semaphore(1);
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -117,7 +118,13 @@ public class RecordingMonitor<T> extends EnvironmentInspector<T> {
 		createMonitor(env);
 		
 		source.initialized(env);
-			
+		
+		source.setRealTime(true);
+		
+		source.setSize(2000, 2000);
+		
+		
+		
 		if (startingScreenshot) {
 			saveScreenshot(env, null, new DoubleTime(), 0);
 		}
@@ -125,11 +132,12 @@ public class RecordingMonitor<T> extends EnvironmentInspector<T> {
 	
 	@Override
 	public void stepDone(final IEnvironment<T> env, final IReaction<T> r, final ITime time, final long step) {
-		source.stepDone(env, r, time, step);
 		mutex.acquireUninterruptibly();
 		final double sample = getInterval().getVal() * FastMath.pow(10, getIntervalOrderOfMagnitude().getVal());
 		final boolean log = getMode().equals(Mode.TIME) ?  time.toDouble() - lastUpdate >= sample : step - lastStep >= sample;
-		
+		if (source != null) {
+			source.stepDone(env, r, time, step);
+		}
 		if (log) {
 			lastUpdate = time.toDouble();
 			lastStep = step;
@@ -161,8 +169,10 @@ public class RecordingMonitor<T> extends EnvironmentInspector<T> {
 			L.error(e);
 		}
 		
-		svgGraphicator = new SVGGraphics2D(source.getWidth(), source.getHeight());
-		source.paintAll(svgGraphicator);
+		svgGraphicator = new SVGGraphics2D(/*source.getWidth()*/2000, /*source.getHeight()*/2000);
+		source.setVisible(true);
+		source.setEnabled(true);
+		source.paintComponent(svgGraphicator);
 		writer.print(svgGraphicator.getSVGDocument());
 		writer.close();
 		
