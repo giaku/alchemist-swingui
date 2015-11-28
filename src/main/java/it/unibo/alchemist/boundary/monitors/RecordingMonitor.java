@@ -77,6 +77,7 @@ public class RecordingMonitor<T> extends EnvironmentInspector<T> {
 	private SVGGraphics2D svgGraphicator;
 	private long lastStep = Long.MIN_VALUE;
 	private double lastUpdate = Long.MIN_VALUE;
+	
 	@SuppressWarnings("rawtypes")
 	private static final Class< ? extends GraphicalOutputMonitor> DEFAULT_MONITOR_CLASS = Generic2DDisplay.class;
 	private static final String DEFAULT_MONITOR_PACKAGE = "it.unibo.alchemist.boundary.monitors.";
@@ -142,7 +143,9 @@ public class RecordingMonitor<T> extends EnvironmentInspector<T> {
 	@Override
 	public void finished(final IEnvironment<T> env, final ITime time, final long step) {
 		saveScreenshot(env, null, time, step);
-		source.finished(env, time, step);
+		if (source != null) {
+			source.finished(env, time, step);
+		}
 	}
 
 	/**
